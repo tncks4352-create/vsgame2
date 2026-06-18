@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>탄막 피하기 게임</title>
+  <link rel="stylesheet" href="./style.css" />
+</head>
+<body>
+  <div class="game-wrapper">
+    <h1>탄막 피하기</h1>
+
+    <div class="info">
+      <span>생존 시간: <strong id="time">0.0</strong>초</span>
+      <span>목표: 30초 생존</span>
+    </div>
+
+    <canvas id="gameCanvas" width="600" height="400"></canvas>
+
+    <div class="controls">
+      <p>조작: WASD 또는 방향키</p>
+      <button id="startBtn">게임 시작</button>
+      <button id="restartBtn">다시 시작</button>
+    </div>
+
+    <div id="message">게임 시작 버튼을 누르세요</div>
+  </div>
+
+  <script src="./script.js"></script>
+</body>
+</html>
