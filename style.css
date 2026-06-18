@@ -9,8 +9,9 @@ body {
   font-family: Arial, sans-serif;
   display: flex;
   justify-content: center;
-  align-items: center;
+  align-items: flex-start;
   min-height: 100vh;
+  padding: 30px 0;
 }
 
 .game-wrapper {
@@ -36,8 +37,12 @@ canvas {
   margin: 0 auto;
 }
 
-.controls {
+.level-select {
   margin-top: 14px;
+}
+
+.controls {
+  margin-top: 10px;
 }
 
 .controls p {
@@ -46,7 +51,7 @@ canvas {
 }
 
 button {
-  padding: 10px 18px;
+  padding: 10px 16px;
   margin: 4px;
   border: none;
   border-radius: 8px;
@@ -60,9 +65,69 @@ button:hover {
   background: #7dd3fc;
 }
 
+.levelBtn {
+  background: #334155;
+  color: white;
+}
+
+.levelBtn.active {
+  background: #facc15;
+  color: #111827;
+}
+
+#soundBtn {
+  background: #a78bfa;
+}
+
 #message {
   margin-top: 12px;
   font-size: 20px;
   font-weight: bold;
   color: #facc15;
+}
+
+.name-box {
+  margin-top: 14px;
+}
+
+.hidden {
+  display: none;
+}
+
+input {
+  padding: 10px;
+  border-radius: 8px;
+  border: none;
+  width: 180px;
+  font-size: 15px;
+}
+
+.ranking-box {
+  width: 600px;
+  margin: 22px auto 0;
+  padding: 16px;
+  background: #1e293b;
+  border-radius: 12px;
+  text-align: left;
+}
+
+.ranking-box h2 {
+  text-align: center;
+  margin-top: 0;
+}
+
+#rankingList {
+  padding-left: 24px;
+}
+
+#rankingList li {
+  margin: 8px 0;
+  color: #e5e7eb;
+}
+
+#clearRankBtn {
+  display: block;
+  margin: 12px auto 0;
+  background: #ef4444;
+  color: white;
 }
