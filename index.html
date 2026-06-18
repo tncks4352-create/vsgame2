@@ -11,18 +11,12 @@
     <h1>탄막 피하기</h1>
 
     <div class="info">
-      <span>단계: <strong id="levelText">1단계</strong></span>
-      <span>생존 시간: <strong id="time">0.0</strong>초</span>
-      <span>목표: <strong id="targetTime">15</strong>초</span>
+      <span>난이도: <strong id="levelText">1</strong></span>
+      <span>피한 총알: <strong id="scoreText">0</strong>개</span>
+      <span>다음 난이도: <strong id="nextLevelText">10</strong>개</span>
     </div>
 
     <canvas id="gameCanvas" width="600" height="400"></canvas>
-
-    <div class="level-select">
-      <button class="levelBtn active" data-level="1">1단계 15초</button>
-      <button class="levelBtn" data-level="2">2단계 45초</button>
-      <button class="levelBtn" data-level="3">3단계 90초</button>
-    </div>
 
     <div class="controls">
       <p>조작: WASD 또는 방향키</p>
@@ -31,7 +25,7 @@
       <button id="soundBtn">사운드 ON</button>
     </div>
 
-    <div id="message">단계를 선택하고 게임 시작 버튼을 누르세요</div>
+    <div id="message">게임 시작 버튼을 누르세요</div>
 
     <div id="nameInputBox" class="name-box hidden">
       <input type="text" id="nicknameInput" placeholder="닉네임 입력" maxlength="10" />
@@ -39,7 +33,7 @@
     </div>
 
     <section class="ranking-box">
-      <h2>플레이 로그 TOP 10</h2>
+      <h2>랭킹 TOP 10</h2>
       <ol id="rankingList"></ol>
       <button id="clearRankBtn">기록 초기화</button>
     </section>

@@ -1,15 +1,14 @@
 const canvas = document.getElementById("gameCanvas");
 const ctx = canvas.getContext("2d");
 
-const timeText = document.getElementById("time");
+const levelText = document.getElementById("levelText");
+const scoreText = document.getElementById("scoreText");
+const nextLevelText = document.getElementById("nextLevelText");
 const message = document.getElementById("message");
+
 const startBtn = document.getElementById("startBtn");
 const restartBtn = document.getElementById("restartBtn");
 const soundBtn = document.getElementById("soundBtn");
-
-const levelText = document.getElementById("levelText");
-const targetTimeText = document.getElementById("targetTime");
-const levelButtons = document.querySelectorAll(".levelBtn");
 
 const nameInputBox = document.getElementById("nameInputBox");
 const nicknameInput = document.getElementById("nicknameInput");
@@ -22,53 +21,19 @@ let bullets;
 let keys;
 let gameRunning;
 let gameOver;
-let startTime;
 let lastBulletTime;
 let animationId;
-let finalSurviveTime = 0;
-let finalResult = "";
+
+let score = 0;
+let difficultyLevel = 1;
+let finalScore = 0;
 
 let audioContext;
 let soundEnabled = true;
 
-let selectedLevel = 1;
-let winTime = 15;
-
-const rankStorageKey = "bulletDodgeRankings";
-
-const levelSettings = {
-  1: {
-    name: "1단계",
-    winTime: 15,
-    startSpawnInterval: 750,
-    minSpawnInterval: 220,
-    spawnDecrease: 12,
-    startBulletSpeed: 2,
-    speedIncrease: 0.06
-  },
-  2: {
-    name: "2단계",
-    winTime: 45,
-    startSpawnInterval: 650,
-    minSpawnInterval: 160,
-    spawnDecrease: 10,
-    startBulletSpeed: 2.3,
-    speedIncrease: 0.075
-  },
-  3: {
-    name: "3단계",
-    winTime: 90,
-    startSpawnInterval: 580,
-    minSpawnInterval: 120,
-    spawnDecrease: 8,
-    startBulletSpeed: 2.6,
-    speedIncrease: 0.085
-  }
-};
+const rankStorageKey = "bulletDodgeRankingsByBullets";
 
 function initGame() {
-  const setting = levelSettings[selectedLevel];
-
   player = {
     x: canvas.width / 2,
     y: canvas.height / 2,
@@ -80,21 +45,25 @@ function initGame() {
   keys = {};
   gameRunning = false;
   gameOver = false;
-  startTime = 0;
   lastBulletTime = 0;
-  finalSurviveTime = 0;
-  finalResult = "";
-  winTime = setting.winTime;
 
-  levelText.textContent = setting.name;
-  targetTimeText.textContent = setting.winTime;
-  timeText.textContent = "0.0";
-  message.textContent = "단계를 선택하고 게임 시작 버튼을 누르세요";
+  score = 0;
+  difficultyLevel = 1;
+  finalScore = 0;
+
+  updateUI();
+  message.textContent = "게임 시작 버튼을 누르세요";
 
   nameInputBox.classList.add("hidden");
   nicknameInput.value = "";
 
   draw();
+}
+
+function updateUI() {
+  levelText.textContent = difficultyLevel;
+  scoreText.textContent = score;
+  nextLevelText.textContent = difficultyLevel * 10;
 }
 
 function initAudio() {
@@ -117,7 +86,7 @@ function playLaserSound() {
   oscillator.frequency.setValueAtTime(900, audioContext.currentTime);
   oscillator.frequency.exponentialRampToValueAtTime(180, audioContext.currentTime + 0.12);
 
-  gainNode.gain.setValueAtTime(0.12, audioContext.currentTime);
+  gainNode.gain.setValueAtTime(0.09, audioContext.currentTime);
   gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.12);
 
   oscillator.connect(gainNode);
@@ -127,58 +96,28 @@ function playLaserSound() {
   oscillator.stop(audioContext.currentTime + 0.12);
 }
 
-function playCheerSound() {
+function playLevelUpSound() {
   if (!soundEnabled || !audioContext) return;
 
-  const now = audioContext.currentTime;
-
-  for (let i = 0; i < 12; i++) {
-    const oscillator = audioContext.createOscillator();
-    const gainNode = audioContext.createGain();
-
-    const start = now + i * 0.04;
-    const freq = 300 + Math.random() * 700;
-
-    oscillator.type = "triangle";
-    oscillator.frequency.setValueAtTime(freq, start);
-    oscillator.frequency.exponentialRampToValueAtTime(freq * 1.8, start + 0.25);
-
-    gainNode.gain.setValueAtTime(0.001, start);
-    gainNode.gain.exponentialRampToValueAtTime(0.08, start + 0.03);
-    gainNode.gain.exponentialRampToValueAtTime(0.01, start + 0.35);
-
-    oscillator.connect(gainNode);
-    gainNode.connect(audioContext.destination);
-
-    oscillator.start(start);
-    oscillator.stop(start + 0.35);
-  }
-
-  setTimeout(playVictoryTone, 250);
-}
-
-function playVictoryTone() {
-  if (!soundEnabled || !audioContext) return;
-
-  const notes = [523, 659, 784, 1046];
+  const notes = [440, 660, 880];
 
   notes.forEach((freq, index) => {
     const oscillator = audioContext.createOscillator();
     const gainNode = audioContext.createGain();
 
-    const start = audioContext.currentTime + index * 0.12;
+    const start = audioContext.currentTime + index * 0.08;
 
-    oscillator.type = "sine";
+    oscillator.type = "triangle";
     oscillator.frequency.setValueAtTime(freq, start);
 
-    gainNode.gain.setValueAtTime(0.14, start);
-    gainNode.gain.exponentialRampToValueAtTime(0.01, start + 0.25);
+    gainNode.gain.setValueAtTime(0.12, start);
+    gainNode.gain.exponentialRampToValueAtTime(0.01, start + 0.18);
 
     oscillator.connect(gainNode);
     gainNode.connect(audioContext.destination);
 
     oscillator.start(start);
-    oscillator.stop(start + 0.25);
+    oscillator.stop(start + 0.18);
   });
 }
 
@@ -217,14 +156,16 @@ function startGame() {
   bullets = [];
   gameRunning = true;
   gameOver = false;
-  startTime = performance.now();
   lastBulletTime = performance.now();
-  finalSurviveTime = 0;
-  finalResult = "";
+
+  score = 0;
+  difficultyLevel = 1;
+  finalScore = 0;
+
   nameInputBox.classList.add("hidden");
+  message.textContent = "탄막을 최대한 많이 피하세요!";
 
-  message.textContent = `${levelSettings[selectedLevel].name} 시작! 탄막을 피하세요!`;
-
+  updateUI();
   gameLoop();
 }
 
@@ -248,13 +189,8 @@ function update(timestamp) {
   createBullets(timestamp);
   moveBullets();
   checkCollision();
-
-  const surviveTime = (timestamp - startTime) / 1000;
-  timeText.textContent = surviveTime.toFixed(1);
-
-  if (surviveTime >= winTime) {
-    endGame(true);
-  }
+  updateDifficulty();
+  updateUI();
 }
 
 function movePlayer() {
@@ -267,67 +203,104 @@ function movePlayer() {
   player.y = Math.max(player.size, Math.min(canvas.height - player.size, player.y));
 }
 
-function createBullets(timestamp) {
-  const setting = levelSettings[selectedLevel];
-  const elapsed = (timestamp - startTime) / 1000;
+function getSpawnInterval() {
+  return Math.max(120, 700 - difficultyLevel * 45);
+}
 
-  const spawnInterval = Math.max(
-    setting.minSpawnInterval,
-    setting.startSpawnInterval - elapsed * setting.spawnDecrease
-  );
+function getBulletSpeed() {
+  return 2 + difficultyLevel * 0.35;
+}
+
+function getBulletsPerWave() {
+  return Math.min(5, 1 + Math.floor(difficultyLevel / 3));
+}
+
+function createBullets(timestamp) {
+  const spawnInterval = getSpawnInterval();
 
   if (timestamp - lastBulletTime > spawnInterval) {
-    const side = Math.floor(Math.random() * 4);
-    let x, y;
+    const bulletCount = getBulletsPerWave();
 
-    const speed = setting.startBulletSpeed + elapsed * setting.speedIncrease;
-
-    if (side === 0) {
-      x = Math.random() * canvas.width;
-      y = -10;
-    } else if (side === 1) {
-      x = canvas.width + 10;
-      y = Math.random() * canvas.height;
-    } else if (side === 2) {
-      x = Math.random() * canvas.width;
-      y = canvas.height + 10;
-    } else {
-      x = -10;
-      y = Math.random() * canvas.height;
+    for (let i = 0; i < bulletCount; i++) {
+      createSingleBullet();
     }
 
-    const angle = Math.atan2(player.y - y, player.x - x);
-    const vx = Math.cos(angle) * speed;
-    const vy = Math.sin(angle) * speed;
-
-    bullets.push({
-      x,
-      y,
-      radius: 7,
-      vx,
-      vy
-    });
-
     playLaserSound();
-
     lastBulletTime = timestamp;
   }
+}
+
+function createSingleBullet() {
+  const side = Math.floor(Math.random() * 4);
+  let x, y;
+
+  const speed = getBulletSpeed();
+
+  if (side === 0) {
+    x = Math.random() * canvas.width;
+    y = -10;
+  } else if (side === 1) {
+    x = canvas.width + 10;
+    y = Math.random() * canvas.height;
+  } else if (side === 2) {
+    x = Math.random() * canvas.width;
+    y = canvas.height + 10;
+  } else {
+    x = -10;
+    y = Math.random() * canvas.height;
+  }
+
+  const angle = Math.atan2(player.y - y, player.x - x);
+  const randomAngleOffset = (Math.random() - 0.5) * 0.35;
+
+  const vx = Math.cos(angle + randomAngleOffset) * speed;
+  const vy = Math.sin(angle + randomAngleOffset) * speed;
+
+  bullets.push({
+    x,
+    y,
+    radius: 7,
+    vx,
+    vy,
+    counted: false
+  });
 }
 
 function moveBullets() {
   bullets.forEach((bullet) => {
     bullet.x += bullet.vx;
     bullet.y += bullet.vy;
+
+    const isOut =
+      bullet.x < -30 ||
+      bullet.x > canvas.width + 30 ||
+      bullet.y < -30 ||
+      bullet.y > canvas.height + 30;
+
+    if (isOut && !bullet.counted) {
+      score += 1;
+      bullet.counted = true;
+    }
   });
 
   bullets = bullets.filter((bullet) => {
     return (
-      bullet.x > -30 &&
-      bullet.x < canvas.width + 30 &&
-      bullet.y > -30 &&
-      bullet.y < canvas.height + 30
+      bullet.x > -40 &&
+      bullet.x < canvas.width + 40 &&
+      bullet.y > -40 &&
+      bullet.y < canvas.height + 40
     );
   });
+}
+
+function updateDifficulty() {
+  const newLevel = Math.floor(score / 10) + 1;
+
+  if (newLevel > difficultyLevel) {
+    difficultyLevel = newLevel;
+    message.textContent = `난이도 ${difficultyLevel} 상승!`;
+    playLevelUpSound();
+  }
 }
 
 function checkCollision() {
@@ -337,30 +310,23 @@ function checkCollision() {
     const distance = Math.sqrt(dx * dx + dy * dy);
 
     if (distance < player.size + bullet.radius) {
-      endGame(false);
+      endGame();
       break;
     }
   }
 }
 
-function endGame(isWin) {
+function endGame() {
   if (gameOver) return;
 
-  const now = performance.now();
-  finalSurviveTime = Math.min((now - startTime) / 1000, winTime);
-  finalResult = isWin ? "승리" : "패배";
+  finalScore = score;
 
   gameRunning = false;
   gameOver = true;
   cancelAnimationFrame(animationId);
 
-  if (isWin) {
-    message.textContent = `승리! ${levelSettings[selectedLevel].name} 클리어! 닉네임을 남겨주세요.`;
-    playCheerSound();
-  } else {
-    message.textContent = `패배! ${levelSettings[selectedLevel].name} 도전 실패! 닉네임을 남겨주세요.`;
-    playDisappointedSound();
-  }
+  message.textContent = `게임 종료! 총 ${finalScore}개의 총알을 피했습니다.`;
+  playDisappointedSound();
 
   nameInputBox.classList.remove("hidden");
   nicknameInput.focus();
@@ -376,19 +342,13 @@ function saveRanking() {
 
   const newRecord = {
     nickname,
-    level: levelSettings[selectedLevel].name,
-    result: finalResult,
-    time: Number(finalSurviveTime.toFixed(1)),
-    date: new Date().toLocaleString()
+    score: finalScore
   };
 
   const rankings = getRankings();
   rankings.push(newRecord);
 
-  rankings.sort((a, b) => {
-    if (b.time !== a.time) return b.time - a.time;
-    return Number(b.result === "승리") - Number(a.result === "승리");
-  });
+  rankings.sort((a, b) => b.score - a.score);
 
   const top10 = rankings.slice(0, 10);
 
@@ -413,11 +373,15 @@ function renderRankings() {
     return;
   }
 
-  rankings.forEach((record) => {
+  rankings.forEach((record, index) => {
     const li = document.createElement("li");
 
-    li.textContent = `${record.nickname} | ${record.level} | ${record.result} | ${record.time}초 | ${record.date}`;
+    let rankIcon = `${index + 1}.`;
+    if (index === 0) rankIcon = "🥇";
+    if (index === 1) rankIcon = "🥈";
+    if (index === 2) rankIcon = "🥉";
 
+    li.textContent = `${rankIcon} ${record.nickname} | ${record.score}개 회피`;
     rankingList.appendChild(li);
   });
 }
@@ -454,19 +418,6 @@ function drawBullets() {
     ctx.fill();
   });
 }
-
-levelButtons.forEach((button) => {
-  button.addEventListener("click", () => {
-    if (gameRunning) return;
-
-    selectedLevel = Number(button.dataset.level);
-
-    levelButtons.forEach((btn) => btn.classList.remove("active"));
-    button.classList.add("active");
-
-    initGame();
-  });
-});
 
 document.addEventListener("keydown", (e) => {
   keys[e.key] = true;
