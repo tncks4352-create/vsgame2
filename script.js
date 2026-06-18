@@ -5,6 +5,13 @@ const levelText = document.getElementById("levelText");
 const scoreText = document.getElementById("scoreText");
 const nextLevelText = document.getElementById("nextLevelText");
 const message = document.getElementById("message");
+const levelUpText = document.getElementById("levelUpText");
+const startText = document.getElementById("startText");
+
+const introScreen = document.getElementById("introScreen");
+const guideScreen = document.getElementById("guideScreen");
+const introStartBtn = document.getElementById("introStartBtn");
+const playStartBtn = document.getElementById("playStartBtn");
 
 const startBtn = document.getElementById("startBtn");
 const restartBtn = document.getElementById("restartBtn");
@@ -16,34 +23,53 @@ const saveRankBtn = document.getElementById("saveRankBtn");
 const rankingList = document.getElementById("rankingList");
 const clearRankBtn = document.getElementById("clearRankBtn");
 
+const playerImage = new Image();
+playerImage.src = "./marine.png";
+
+const introBgm = new Audio("./intro.mp3");
+const playBgm = new Audio("./playbgm.mp3");
+const startSound = new Audio("./start.mp3");
 const smallGunSound = new Audio("./smallgun.mp3");
 const bigGunSound = new Audio("./biggun.mp3");
 const finishSound = new Audio("./finish.mp3");
 
+introBgm.loop = true;
+playBgm.loop = true;
+
+introBgm.volume = 0.18;
+playBgm.volume = 0.2;
+startSound.volume = 0.8;
 smallGunSound.volume = 0.35;
 bigGunSound.volume = 0.65;
-finishSound.volume = 0.7;
+finishSound.volume = 0.75;
+
+const rankStorageKey = "spaceBulletSurvivalRankingsV3";
 
 let player;
-let bullets;
-let keys;
-let gameRunning;
-let gameOver;
-let lastBulletTime;
-let animationId;
+let bullets = [];
+let stars = [];
+let keys = {};
+let gameRunning = false;
+let gameOver = false;
+let isStarting = false;
+let animationId = null;
+let menuAnimationId = null;
+let lastBulletTime = 0;
+let playerDirection = "right";
+let soundEnabled = true;
 
 let score = 0;
 let difficultyLevel = 1;
 let finalScore = 0;
-let soundEnabled = true;
-
-const rankStorageKey = "bulletDodgeRankingsByBullets";
+let shakeTime = 0;
 
 function initGame() {
   player = {
     x: canvas.width / 2,
     y: canvas.height / 2,
-    size: 18,
+    hitRadius: 17,
+    imageWidth: 58,
+    imageHeight: 70,
     speed: 4
   };
 
@@ -51,21 +77,62 @@ function initGame() {
   keys = {};
   gameRunning = false;
   gameOver = false;
+  isStarting = false;
   lastBulletTime = 0;
+  playerDirection = "right";
 
   score = 0;
   difficultyLevel = 1;
   finalScore = 0;
+  shakeTime = 0;
 
+  createStars();
+  stopSound(playBgm);
   stopSound(finishSound);
+  hideNameInput();
 
   updateUI();
   message.textContent = "게임 시작 버튼을 누르세요";
-
-  nameInputBox.classList.add("hidden");
-  nicknameInput.value = "";
-
   draw();
+  startMenuAnimation();
+}
+
+function startMenuAnimation() {
+  cancelAnimationFrame(menuAnimationId);
+
+  function animateMenu() {
+    if (gameRunning) return;
+    updateStars();
+    draw();
+    menuAnimationId = requestAnimationFrame(animateMenu);
+  }
+
+  animateMenu();
+}
+
+function createStars() {
+  stars = [];
+
+  for (let i = 0; i < 95; i++) {
+    stars.push({
+      x: Math.random() * canvas.width,
+      y: Math.random() * canvas.height,
+      size: Math.random() * 2 + 0.4,
+      speed: Math.random() * 0.8 + 0.2,
+      alpha: Math.random() * 0.7 + 0.25
+    });
+  }
+}
+
+function updateStars() {
+  stars.forEach((star) => {
+    star.y += star.speed;
+
+    if (star.y > canvas.height) {
+      star.y = 0;
+      star.x = Math.random() * canvas.width;
+    }
+  });
 }
 
 function updateUI() {
@@ -86,31 +153,109 @@ function stopSound(sound) {
   sound.currentTime = 0;
 }
 
-function startGame() {
-  if (gameRunning) return;
+function playLoop(sound) {
+  if (!soundEnabled) return;
+  sound.play().catch(() => {});
+}
 
-  bullets = [];
-  gameRunning = true;
-  gameOver = false;
-  lastBulletTime = performance.now();
+function fadeOut(sound, duration = 600) {
+  return new Promise((resolve) => {
+    if (sound.paused) {
+      resolve();
+      return;
+    }
 
-  score = 0;
-  difficultyLevel = 1;
-  finalScore = 0;
+    const startVolume = sound.volume;
+    const steps = 20;
+    const intervalTime = duration / steps;
+    let step = 0;
 
+    const interval = setInterval(() => {
+      step += 1;
+      sound.volume = Math.max(0, startVolume * (1 - step / steps));
+
+      if (step >= steps) {
+        clearInterval(interval);
+        sound.pause();
+        sound.currentTime = 0;
+        sound.volume = startVolume;
+        resolve();
+      }
+    }, intervalTime);
+  });
+}
+
+function openGuide() {
+  introScreen.classList.add("hidden");
+  guideScreen.classList.remove("hidden");
+  message.textContent = "미션을 확인하고 플레이 시작을 누르세요.";
+  playLoop(introBgm);
+}
+
+function showStartText() {
+  startText.classList.remove("hidden");
+  startText.style.animation = "none";
+  startText.offsetHeight;
+  startText.style.animation = "";
+
+  setTimeout(() => {
+    startText.classList.add("hidden");
+  }, 1080);
+}
+
+async function startGame() {
+  if (gameRunning || isStarting) return;
+
+  isStarting = true;
+  startBtn.disabled = true;
+  playStartBtn.disabled = true;
+
+  introScreen.classList.add("hidden");
+  guideScreen.classList.add("hidden");
+  hideNameInput();
   stopSound(finishSound);
 
-  nameInputBox.classList.add("hidden");
-  message.textContent = "탄막을 최대한 많이 피하세요!";
+  await fadeOut(introBgm, 450);
 
-  updateUI();
-  gameLoop();
+  message.textContent = "OK, LET'S GO!";
+  showStartText();
+  playSound(startSound);
+
+  setTimeout(() => {
+    cancelAnimationFrame(menuAnimationId);
+
+    bullets = [];
+    gameRunning = true;
+    gameOver = false;
+    isStarting = false;
+    startBtn.disabled = false;
+    playStartBtn.disabled = false;
+
+    lastBulletTime = performance.now();
+    score = 0;
+    difficultyLevel = 1;
+    finalScore = 0;
+    shakeTime = 0;
+
+    message.textContent = "탄막을 최대한 많이 피하세요!";
+    updateUI();
+
+    playLoop(playBgm);
+    gameLoop();
+  }, 750);
 }
 
 function restartGame() {
   cancelAnimationFrame(animationId);
+  cancelAnimationFrame(menuAnimationId);
+  stopSound(playBgm);
+  stopSound(finishSound);
+  introScreen.classList.add("hidden");
+  guideScreen.classList.remove("hidden");
   initGame();
-  startGame();
+  introScreen.classList.add("hidden");
+  guideScreen.classList.remove("hidden");
+  playLoop(introBgm);
 }
 
 function gameLoop(timestamp) {
@@ -123,136 +268,140 @@ function gameLoop(timestamp) {
 }
 
 function update(timestamp) {
+  updateStars();
   movePlayer();
   createBullets(timestamp);
   moveBullets();
   checkCollision();
   updateDifficulty();
   updateUI();
+
+  if (shakeTime > 0) {
+    shakeTime -= 1;
+  }
 }
 
 function movePlayer() {
-  if (keys["ArrowUp"] || keys["w"]) player.y -= player.speed;
-  if (keys["ArrowDown"] || keys["s"]) player.y += player.speed;
-  if (keys["ArrowLeft"] || keys["a"]) player.x -= player.speed;
-  if (keys["ArrowRight"] || keys["d"]) player.x += player.speed;
+  if (keys["ArrowUp"] || keys["w"] || keys["W"]) {
+    player.y -= player.speed;
+  }
 
-  player.x = Math.max(player.size, Math.min(canvas.width - player.size, player.x));
-  player.y = Math.max(player.size, Math.min(canvas.height - player.size, player.y));
+  if (keys["ArrowDown"] || keys["s"] || keys["S"]) {
+    player.y += player.speed;
+  }
+
+  if (keys["ArrowLeft"] || keys["a"] || keys["A"]) {
+    player.x -= player.speed;
+    playerDirection = "left";
+  }
+
+  if (keys["ArrowRight"] || keys["d"] || keys["D"]) {
+    player.x += player.speed;
+    playerDirection = "right";
+  }
+
+  player.x = Math.max(player.hitRadius, Math.min(canvas.width - player.hitRadius, player.x));
+  player.y = Math.max(player.hitRadius, Math.min(canvas.height - player.hitRadius, player.y));
 }
 
 function getSpawnInterval() {
-  return Math.max(120, 700 - difficultyLevel * 45);
+  return Math.max(110, 700 - difficultyLevel * 45);
 }
 
 function getBulletSpeed() {
-  return 2 + difficultyLevel * 0.35;
+  return 2 + difficultyLevel * 0.36;
 }
 
 function getBulletsPerWave() {
-  return Math.min(5, 1 + Math.floor(difficultyLevel / 3));
-}
-
-function getBigBulletRadius() {
-  return 26;
+  return Math.min(6, 1 + Math.floor(difficultyLevel / 3));
 }
 
 function createBullets(timestamp) {
   const spawnInterval = getSpawnInterval();
 
-  if (timestamp - lastBulletTime > spawnInterval) {
-    const bulletCount = getBulletsPerWave();
+  if (timestamp - lastBulletTime <= spawnInterval) return;
 
-    for (let i = 0; i < bulletCount; i++) {
-      createSingleBullet();
-    }
+  const bulletCount = getBulletsPerWave();
 
-    playSound(smallGunSound);
-    lastBulletTime = timestamp;
+  for (let i = 0; i < bulletCount; i++) {
+    createSingleBullet();
   }
+
+  playSound(smallGunSound);
+  lastBulletTime = timestamp;
 }
 
 function createSingleBullet() {
-  const side = Math.floor(Math.random() * 4);
-  let x, y;
-
+  const spawn = getSpawnPosition(16);
   const speed = getBulletSpeed();
-
-  if (side === 0) {
-    x = Math.random() * canvas.width;
-    y = -10;
-  } else if (side === 1) {
-    x = canvas.width + 10;
-    y = Math.random() * canvas.height;
-  } else if (side === 2) {
-    x = Math.random() * canvas.width;
-    y = canvas.height + 10;
-  } else {
-    x = -10;
-    y = Math.random() * canvas.height;
-  }
-
-  const angle = Math.atan2(player.y - y, player.x - x);
-  const randomAngleOffset = (Math.random() - 0.5) * 0.35;
+  const angle = Math.atan2(player.y - spawn.y, player.x - spawn.x);
+  const randomAngleOffset = (Math.random() - 0.5) * 0.38;
 
   bullets.push({
-    x,
-    y,
+    x: spawn.x,
+    y: spawn.y,
     radius: 7,
     vx: Math.cos(angle + randomAngleOffset) * speed,
     vy: Math.sin(angle + randomAngleOffset) * speed,
     counted: false,
-    isBig: false
+    isBig: false,
+    trail: []
   });
 }
 
 function createBigLevelUpBullet() {
-  const side = Math.floor(Math.random() * 4);
-  let x, y;
-
-  const speed = getBulletSpeed() * 0.85;
-
-  if (side === 0) {
-    x = Math.random() * canvas.width;
-    y = -30;
-  } else if (side === 1) {
-    x = canvas.width + 30;
-    y = Math.random() * canvas.height;
-  } else if (side === 2) {
-    x = Math.random() * canvas.width;
-    y = canvas.height + 30;
-  } else {
-    x = -30;
-    y = Math.random() * canvas.height;
-  }
-
-  const angle = Math.atan2(player.y - y, player.x - x);
+  const spawn = getSpawnPosition(36);
+  const speed = getBulletSpeed() * 0.82;
+  const angle = Math.atan2(player.y - spawn.y, player.x - spawn.x);
 
   bullets.push({
-    x,
-    y,
-    radius: getBigBulletRadius(),
+    x: spawn.x,
+    y: spawn.y,
+    radius: 27,
     vx: Math.cos(angle) * speed,
     vy: Math.sin(angle) * speed,
     counted: false,
-    isBig: true
+    isBig: true,
+    trail: []
   });
 
+  shakeTime = 16;
   playSound(bigGunSound);
+}
+
+function getSpawnPosition(offset) {
+  const side = Math.floor(Math.random() * 4);
+
+  if (side === 0) {
+    return { x: Math.random() * canvas.width, y: -offset };
+  }
+
+  if (side === 1) {
+    return { x: canvas.width + offset, y: Math.random() * canvas.height };
+  }
+
+  if (side === 2) {
+    return { x: Math.random() * canvas.width, y: canvas.height + offset };
+  }
+
+  return { x: -offset, y: Math.random() * canvas.height };
 }
 
 function moveBullets() {
   bullets.forEach((bullet) => {
+    bullet.trail.push({ x: bullet.x, y: bullet.y });
+    if (bullet.trail.length > 8) bullet.trail.shift();
+
     bullet.x += bullet.vx;
     bullet.y += bullet.vy;
 
-    const isOut =
-      bullet.x < -30 ||
-      bullet.x > canvas.width + 30 ||
-      bullet.y < -30 ||
-      bullet.y > canvas.height + 30;
+    const out =
+      bullet.x < -35 ||
+      bullet.x > canvas.width + 35 ||
+      bullet.y < -35 ||
+      bullet.y > canvas.height + 35;
 
-    if (isOut && !bullet.counted) {
+    if (out && !bullet.counted) {
       score += 1;
       bullet.counted = true;
     }
@@ -260,10 +409,10 @@ function moveBullets() {
 
   bullets = bullets.filter((bullet) => {
     return (
-      bullet.x > -50 &&
-      bullet.x < canvas.width + 50 &&
-      bullet.y > -50 &&
-      bullet.y < canvas.height + 50
+      bullet.x > -70 &&
+      bullet.x < canvas.width + 70 &&
+      bullet.y > -70 &&
+      bullet.y < canvas.height + 70
     );
   });
 }
@@ -273,20 +422,32 @@ function updateDifficulty() {
 
   if (newLevel > difficultyLevel) {
     difficultyLevel = newLevel;
-    message.textContent = `난이도 ${difficultyLevel} 상승! 큰 탄막 등장!`;
+    message.textContent = `난이도 ${difficultyLevel} 상승! 거대 탄막 등장!`;
+    showLevelUp();
     createBigLevelUpBullet();
   }
 }
 
+function showLevelUp() {
+  levelUpText.classList.remove("hidden");
+  levelUpText.style.animation = "none";
+  levelUpText.offsetHeight;
+  levelUpText.style.animation = "";
+
+  setTimeout(() => {
+    levelUpText.classList.add("hidden");
+  }, 780);
+}
+
 function checkCollision() {
-  for (let bullet of bullets) {
+  for (const bullet of bullets) {
     const dx = player.x - bullet.x;
     const dy = player.y - bullet.y;
     const distance = Math.sqrt(dx * dx + dy * dy);
 
-    if (distance < player.size + bullet.radius) {
+    if (distance < player.hitRadius + bullet.radius) {
       endGame();
-      break;
+      return;
     }
   }
 }
@@ -295,13 +456,19 @@ function endGame() {
   if (gameOver) return;
 
   finalScore = score;
-
   gameRunning = false;
   gameOver = true;
+
   cancelAnimationFrame(animationId);
+  stopSound(playBgm);
 
   message.textContent = `게임 종료! 총 ${finalScore}개의 총알을 피했습니다.`;
   playSound(finishSound);
+
+  setTimeout(() => {
+    playLoop(introBgm);
+    startMenuAnimation();
+  }, 1200);
 
   nameInputBox.classList.remove("hidden");
   nicknameInput.focus();
@@ -310,29 +477,34 @@ function endGame() {
 function saveRanking() {
   const nickname = nicknameInput.value.trim();
 
-  if (nickname === "") {
+  if (!nickname) {
     alert("닉네임을 입력하세요.");
     return;
   }
 
-  const newRecord = {
+  const rankings = getRankings();
+
+  rankings.push({
     nickname,
     score: finalScore
-  };
+  });
 
-  const rankings = getRankings();
-  rankings.push(newRecord);
   rankings.sort((a, b) => b.score - a.score);
 
   localStorage.setItem(rankStorageKey, JSON.stringify(rankings.slice(0, 10)));
 
-  nameInputBox.classList.add("hidden");
+  hideNameInput();
   renderRankings();
 }
 
+function hideNameInput() {
+  nameInputBox.classList.add("hidden");
+  nicknameInput.value = "";
+}
+
 function getRankings() {
-  const savedData = localStorage.getItem(rankStorageKey);
-  return savedData ? JSON.parse(savedData) : [];
+  const data = localStorage.getItem(rankStorageKey);
+  return data ? JSON.parse(data) : [];
 }
 
 function renderRankings() {
@@ -364,34 +536,131 @@ function clearRankings() {
 }
 
 function draw() {
-  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  const shake = getShakeOffset();
 
-  drawPlayer();
+  ctx.save();
+  ctx.translate(shake.x, shake.y);
+
+  drawBackground();
   drawBullets();
+  drawPlayer();
+
+  ctx.restore();
+}
+
+function getShakeOffset() {
+  if (shakeTime <= 0) return { x: 0, y: 0 };
+
+  return {
+    x: (Math.random() - 0.5) * 8,
+    y: (Math.random() - 0.5) * 8
+  };
+}
+
+function drawBackground() {
+  const gradient = ctx.createRadialGradient(
+    canvas.width / 2,
+    canvas.height / 2,
+    40,
+    canvas.width / 2,
+    canvas.height / 2,
+    canvas.width
+  );
+
+  gradient.addColorStop(0, "#0f172a");
+  gradient.addColorStop(0.45, "#020617");
+  gradient.addColorStop(1, "#000000");
+
+  ctx.fillStyle = gradient;
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  drawStars();
+  drawGrid();
+}
+
+function drawStars() {
+  stars.forEach((star) => {
+    ctx.beginPath();
+    ctx.globalAlpha = star.alpha;
+    ctx.arc(star.x, star.y, star.size, 0, Math.PI * 2);
+    ctx.fillStyle = "#bfdbfe";
+    ctx.fill();
+    ctx.globalAlpha = 1;
+  });
+}
+
+function drawGrid() {
+  ctx.strokeStyle = "rgba(56, 189, 248, 0.07)";
+  ctx.lineWidth = 1;
+
+  for (let x = 0; x < canvas.width; x += 40) {
+    ctx.beginPath();
+    ctx.moveTo(x, 0);
+    ctx.lineTo(x, canvas.height);
+    ctx.stroke();
+  }
+
+  for (let y = 0; y < canvas.height; y += 40) {
+    ctx.beginPath();
+    ctx.moveTo(0, y);
+    ctx.lineTo(canvas.width, y);
+    ctx.stroke();
+  }
 }
 
 function drawPlayer() {
-  ctx.beginPath();
-  ctx.arc(player.x, player.y, player.size, 0, Math.PI * 2);
-  ctx.fillStyle = "#22c55e";
-  ctx.fill();
+  ctx.save();
+  ctx.translate(player.x, player.y);
 
+  if (playerDirection === "left") {
+    ctx.scale(-1, 1);
+  }
+
+  if (playerImage.complete && playerImage.naturalWidth > 0) {
+    ctx.drawImage(
+      playerImage,
+      -player.imageWidth / 2,
+      -player.imageHeight / 2,
+      player.imageWidth,
+      player.imageHeight
+    );
+  } else {
+    drawFallbackPlayer();
+  }
+
+  ctx.restore();
+}
+
+function drawFallbackPlayer() {
   ctx.beginPath();
-  ctx.arc(player.x, player.y, 5, 0, Math.PI * 2);
-  ctx.fillStyle = "#ffffff";
+  ctx.arc(0, 0, player.hitRadius, 0, Math.PI * 2);
+  ctx.fillStyle = "#22c55e";
   ctx.fill();
 }
 
 function drawBullets() {
   bullets.forEach((bullet) => {
+    drawBulletTrail(bullet);
+
+    ctx.save();
+    ctx.shadowColor = bullet.isBig ? "#facc15" : "#ef4444";
+    ctx.shadowBlur = bullet.isBig ? 24 : 12;
+
     ctx.beginPath();
     ctx.arc(bullet.x, bullet.y, bullet.radius, 0, Math.PI * 2);
     ctx.fillStyle = bullet.isBig ? "#facc15" : "#ef4444";
     ctx.fill();
 
+    ctx.beginPath();
+    ctx.arc(bullet.x, bullet.y, bullet.radius * 0.55, 0, Math.PI * 2);
+    ctx.fillStyle = bullet.isBig ? "#fef3c7" : "#fecaca";
+    ctx.fill();
+
+    ctx.restore();
+
     if (bullet.isBig) {
       ctx.beginPath();
-      ctx.arc(bullet.x, bullet.y, bullet.radius + 5, 0, Math.PI * 2);
+      ctx.arc(bullet.x, bullet.y, bullet.radius + 6, 0, Math.PI * 2);
       ctx.strokeStyle = "#fde68a";
       ctx.lineWidth = 3;
       ctx.stroke();
@@ -399,19 +668,42 @@ function drawBullets() {
   });
 }
 
-document.addEventListener("keydown", (e) => {
-  keys[e.key] = true;
+function drawBulletTrail(bullet) {
+  bullet.trail.forEach((point, index) => {
+    const alpha = index / bullet.trail.length;
 
-  if (e.key === "Enter" && !nameInputBox.classList.contains("hidden")) {
+    ctx.beginPath();
+    ctx.globalAlpha = alpha * 0.35;
+    ctx.arc(point.x, point.y, bullet.radius * alpha, 0, Math.PI * 2);
+    ctx.fillStyle = bullet.isBig ? "#facc15" : "#ef4444";
+    ctx.fill();
+    ctx.globalAlpha = 1;
+  });
+}
+
+document.addEventListener("keydown", (event) => {
+  keys[event.key] = true;
+
+  if (event.key === "Enter" && !nameInputBox.classList.contains("hidden")) {
     saveRanking();
   }
 });
 
-document.addEventListener("keyup", (e) => {
-  keys[e.key] = false;
+document.addEventListener("keyup", (event) => {
+  keys[event.key] = false;
 });
 
-startBtn.addEventListener("click", startGame);
+introStartBtn.addEventListener("click", openGuide);
+playStartBtn.addEventListener("click", startGame);
+
+startBtn.addEventListener("click", () => {
+  if (!gameRunning && !isStarting) {
+    introScreen.classList.add("hidden");
+    guideScreen.classList.remove("hidden");
+    playLoop(introBgm);
+  }
+});
+
 restartBtn.addEventListener("click", restartGame);
 saveRankBtn.addEventListener("click", saveRanking);
 clearRankBtn.addEventListener("click", clearRankings);
@@ -419,7 +711,21 @@ clearRankBtn.addEventListener("click", clearRankings);
 soundBtn.addEventListener("click", () => {
   soundEnabled = !soundEnabled;
   soundBtn.textContent = soundEnabled ? "사운드 ON" : "사운드 OFF";
+
+  if (soundEnabled) {
+    if (!gameRunning && !isStarting) playLoop(introBgm);
+    if (gameRunning) playLoop(playBgm);
+  } else {
+    stopSound(introBgm);
+    stopSound(playBgm);
+    stopSound(startSound);
+    stopSound(smallGunSound);
+    stopSound(bigGunSound);
+    stopSound(finishSound);
+  }
 });
+
+playerImage.addEventListener("load", draw);
 
 initGame();
 renderRankings();
