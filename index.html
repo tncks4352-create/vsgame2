@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Space Bullet Survival</title>
-  <link rel="stylesheet" href="./style.css" />
+  <link rel="stylesheet" href="./style.css?v=6" />
 </head>
 <body>
   <main class="game-wrapper">
@@ -18,7 +18,6 @@
 
     <div class="canvas-frame">
       <canvas id="gameCanvas" width="600" height="400"></canvas>
-
       <div id="levelUpText" class="level-up hidden">LEVEL UP</div>
       <div id="startText" class="start-text hidden">OK, LET'S GO!</div>
 
@@ -33,10 +32,10 @@
         <div class="guide-content">
           <p><strong>목표</strong> 날아오는 탄막을 최대한 많이 피하세요.</p>
           <p><strong>조작</strong> WASD 또는 방향키로 이동합니다.</p>
-          <p><strong>규칙</strong> 총알 10개를 피할 때마다 난이도가 상승합니다.</p>
-          <p><strong>주의</strong> 난이도 상승 시 거대 탄막 1발이 등장합니다.</p>
+          <p><strong>규칙</strong> 총알 10개 회피마다 난이도가 상승합니다.</p>
+          <p><strong>주의</strong> 난이도 상승 시 행성 탄막 1개가 등장합니다.</p>
         </div>
-        <button id="playStartBtn">I'm Ready</button>
+        <button id="playStartBtn">I'M READY</button>
       </section>
     </div>
 
@@ -61,6 +60,6 @@
     </section>
   </main>
 
-  <script src="./script.js"></script>
+  <script src="./script.js?v=6"></script>
 </body>
 </html>
