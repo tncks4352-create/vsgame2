@@ -305,15 +305,15 @@ function movePlayer(){
 }
 
 function getSpawnInterval(){
-  return Math.max(110,700-difficultyLevel*45);
+  return Math.max(280,1100-difficultyLevel*70);
 }
 
 function getBulletSpeed(){
-  return 2+difficultyLevel*.36;
+  return 1.55+difficultyLevel*.22;
 }
 
 function getBulletsPerWave(){
-  return Math.min(6,1+Math.floor(difficultyLevel/3));
+  return Math.min(4,1+Math.floor((difficultyLevel-1)/4));
 }
 
 function createBullets(timestamp){
@@ -430,7 +430,7 @@ function updateDifficulty(){
 
   if(newLevel>difficultyLevel){
     difficultyLevel=newLevel;
-    message.textContent=`난이도 ${difficultyLevel} 상승! 행성 탄막 등장!`;
+    message.textContent=`난이도 ${difficultyLevel} 상승! 탄막 속도와 발사 빈도 증가!`;
     showLevelUp();
     createBigLevelUpBullet();
   }
@@ -438,6 +438,7 @@ function updateDifficulty(){
 
 function showLevelUp(){
   playSound(levelUpSound);
+  levelUpText.textContent=`LEVEL UP · ${difficultyLevel}`;
   levelUpText.classList.remove("hidden");
   levelUpText.style.animation="none";
   levelUpText.offsetHeight;
